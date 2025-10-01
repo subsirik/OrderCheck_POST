@@ -3,24 +3,34 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-  <title>หน่วยพัฒนาและจำหน่ายผลิตภัณฑ์ — ค้นหาจากรหัส/ชื่อ</title>
+  <title>หน่วยพัฒนาและจำหน่ายผลิตภัณฑ์ — ค้นหา/เพิ่มข้อมูล</title>
   <script src="https://cdn.tailwindcss.com"></script>
   <style>
     @import url('https://fonts.googleapis.com/css2?family=Sarabun:wght@300;400;600;700&display=swap');
     body { font-family: 'Sarabun', sans-serif; }
+    .sr-only { position:absolute; width:1px; height:1px; padding:0; margin:-1px; overflow:hidden; clip:rect(0,0,0,0); border:0; }
   </style>
 </head>
 <body class="bg-gradient-to-br from-blue-50 to-indigo-100 min-h-screen">
+  <!-- Header -->
   <header class="bg-white shadow-lg border-b-4 border-indigo-600">
     <div class="container mx-auto px-6 py-5">
-      <div class="flex flex-col md:flex-row md:items-center md:justify-between gap-2">
+      <div class="flex flex-col gap-2 md:flex-row md:items-center md:justify-between">
         <div>
           <h1 class="text-2xl md:text-3xl font-bold text-gray-900">
             หน่วยพัฒนาและจำหน่ายผลิตภัณฑ์
           </h1>
           <p class="text-sm text-gray-600">สโมสรนักศึกษาคณะมนุษยศาสตร์ มหาวิทยาลัยเชียงใหม่</p>
         </div>
-        <div class="text-sm text-gray-500">ค้นหาด้วยรหัสนักศึกษา หรือ ชื่อ–สกุล จาก Firestore</div>
+        <div class="flex items-center gap-3">
+          <span id="userInfo" class="text-sm text-gray-600 hidden"></span>
+          <button id="btnSignIn" class="bg-emerald-600 hover:bg-emerald-700 text-white px-4 py-2 rounded-xl">
+            เข้าสู่ระบบด้วย Google
+          </button>
+          <button id="btnSignOut" class="bg-gray-600 hover:bg-gray-700 text-white px-4 py-2 rounded-xl hidden">
+            ออกจากระบบ
+          </button>
+        </div>
       </div>
     </div>
   </header>
@@ -28,6 +38,7 @@
   <main class="container mx-auto px-6 py-8">
     <!-- Search Card -->
     <div class="bg-white rounded-2xl shadow-lg p-6 border border-gray-100">
+      <h2 class="text-lg font-semibold text-gray-900 mb-3">ค้นหาคำสั่งซื้อ</h2>
       <div class="grid gap-4 md:grid-cols-3">
         <div class="md:col-span-2">
           <label class="block text-sm font-medium text-gray-700 mb-1">คำค้น</label>
@@ -50,6 +61,50 @@
         <button id="btnClear" class="bg-gray-500 hover:bg-gray-600 text-white px-5 py-2 rounded-xl">ล้างผลลัพธ์</button>
       </div>
     </div>
+
+    <!-- Admin/Add Form (visible only when signed-in) -->
+    <section id="addSection" class="mt-8 bg-white rounded-2xl shadow-lg p-6 border border-gray-100 hidden">
+      <div class="flex items-center justify-between">
+        <h2 class="text-lg font-semibold text-gray-900">เพิ่มข้อมูลคำสั่งซื้อ (เฉพาะผู้ล็อกอิน)</h2>
+        <span id="addStatus" class="text-sm"></span>
+      </div>
+      <form id="addForm" class="mt-4 grid gap-4 md:grid-cols-2">
+        <div>
+          <label class="block text-sm font-medium text-gray-700 mb-1">รหัสประจำตัวนักศึกษา</label>
+          <input id="f_studentId" type="text" required placeholder="66xxxxxxxx"
+                 class="w-full rounded-xl border-gray-300 focus:ring-2 focus:ring-emerald-500 px-4 py-2">
+        </div>
+        <div>
+          <label class="block text-sm font-medium text-gray-700 mb-1">ชื่อ - สกุล</label>
+          <input id="f_fullName" type="text" required placeholder="ชื่อ นามสกุล"
+                 class="w-full rounded-xl border-gray-300 focus:ring-2 focus:ring-emerald-500 px-4 py-2">
+        </div>
+        <div>
+          <label class="block text-sm font-medium text-gray-700 mb-1">ออเดอร์สินค้า</label>
+          <input id="f_merchandise" type="text" required placeholder="เช่น เสื้อ Humanitas 2025 (Size M) สีดำ"
+                 class="w-full rounded-xl border-gray-300 focus:ring-2 focus:ring-emerald-500 px-4 py-2">
+        </div>
+        <div>
+          <label class="block text-sm font-medium text-gray-700 mb-1">จำนวน</label>
+          <input id="f_quantity" type="number" required min="1" value="1"
+                 class="w-full rounded-xl border-gray-300 focus:ring-2 focus:ring-emerald-500 px-4 py-2">
+        </div>
+        <div class="md:col-span-2">
+          <label class="block text-sm font-medium text-gray-700 mb-1">ที่อยู่</label>
+          <textarea id="f_address" rows="3" required placeholder="ที่อยู่สำหรับจัดส่ง"
+                    class="w-full rounded-xl border-gray-300 focus:ring-2 focus:ring-emerald-500 px-4 py-2"></textarea>
+        </div>
+        <div class="md:col-span-2">
+          <label class="block text-sm font-medium text-gray-700 mb-1">Tracking No. (ถ้ามี)</label>
+          <input id="f_trackingNo" type="text" placeholder="TH123456789 / JTH..."
+                 class="w-full rounded-xl border-gray-300 focus:ring-2 focus:ring-emerald-500 px-4 py-2">
+        </div>
+        <div class="md:col-span-2 flex gap-3">
+          <button type="submit" class="bg-emerald-600 hover:bg-emerald-700 text-white px-5 py-2 rounded-xl">บันทึก</button>
+          <button type="button" id="btnReset" class="bg-gray-500 hover:bg-gray-600 text-white px-5 py-2 rounded-xl">ล้างฟอร์ม</button>
+        </div>
+      </form>
+    </section>
 
     <!-- Result Summary -->
     <div id="summary" class="mt-6 hidden">
@@ -86,32 +141,43 @@
   <script type="module">
     import { initializeApp } from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js';
     import {
-      getFirestore, collection, query, where, getDocs, orderBy, limit, startAt, endAt
+      getFirestore, collection, query, where, getDocs, orderBy, limit, startAt, endAt, addDoc, serverTimestamp
     } from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js';
+    import {
+      getAuth, GoogleAuthProvider, signInWithPopup, signOut, onAuthStateChanged
+    } from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js';
 
-    // === ใช้คอนฟิกเดิมของโปรเจกต์คุณ ===
+    // ========= Firebase Config (ใช้โปรเจกต์เดิมของคุณ) =========
     const firebaseConfig = {
       apiKey: "AIzaSyByuGxfKJcT-fcFZlfBF926Cyo1yXxwwTc",
       authDomain: "ordertrackkingsmo.firebaseapp.com",
       projectId: "ordertrackkingsmo",
     };
 
+    // ========= Init =========
     const app = initializeApp(firebaseConfig);
     const db  = getFirestore(app);
+    const auth = getAuth(app);
+    const provider = new GoogleAuthProvider();
 
-    // ===== CONFIG =====
+    // ========= App Config =========
     const COLLECTION_NAME = 'orders';
     const F = {
-      studentId:   'studentId',   // รหัสประจำตัวนักศึกษา
-      fullName:    'fullName',    // ชื่อ - สกุล (เก็บเป็นสตริงเดียว เช่น "สมชาย ใจดี")
-      merchandise: 'merchandise', // ออเดอร์สินค้า
-      quantity:    'quantity',    // จำนวน
-      address:     'address',     // ที่อยู่
-      trackingNo:  'trackingNo',  // เลขพัสดุ
-      createdAt:   'createdAt'
+      studentId:   'studentId',
+      fullName:    'fullName',
+      merchandise: 'merchandise',
+      quantity:    'quantity',
+      address:     'address',
+      trackingNo:  'trackingNo',
+      createdAt:   'createdAt',
+      createdBy:   'createdBy'
     };
 
-    // ===== Elements =====
+    // Optional: จำกัดสิทธิ์เฉพาะโดเมน/อีเมลภายใน (ปลดคอมเมนต์เพื่อใช้งาน)
+    // const ALLOWED_DOMAIN = "cmu.ac.th";
+    // const ALLOWED_EMAILS = ["you@cmu.ac.th","admin@cmu.ac.th"];
+
+    // ========= Elements =========
     const $ = (id) => document.getElementById(id);
     const qInput = $('q');
     const modeSel = $('mode');
@@ -123,8 +189,22 @@
     const countSpan = $('count');
     const lastUpdated = $('lastUpdated');
 
-    // ===== Helpers =====
+    const addSection = $('addSection');
+    const addForm = $('addForm');
+    const addStatus = $('addStatus');
+    const btnReset = $('btnReset');
+
+    const btnSignIn = $('btnSignIn');
+    const btnSignOut = $('btnSignOut');
+    const userInfo = $('userInfo');
+
+    // ========= Helpers =========
     const fmt = (v) => (v ?? '').toString().trim() || '-';
+    const toast = (msg, ok=true) => {
+      addStatus.textContent = msg;
+      addStatus.className = `text-sm ${ok ? 'text-emerald-700' : 'text-rose-700'}`;
+      setTimeout(() => { addStatus.textContent = ''; }, 2500);
+    };
 
     function renderRows(rows) {
       if (!rows.length) {
@@ -166,54 +246,149 @@
       });
     }
 
-    // ===== Search Logic =====
+    // ========= Search Logic =========
     async function search() {
       const termRaw = qInput.value.trim();
       const mode = modeSel.value;
       if (!termRaw) { renderRows([]); return; }
 
-      // กำหนดฟิลด์เป้าหมายที่ใช้ค้นหา
       const FIELD = (mode === 'studentId') ? F.studentId : F.fullName;
 
-      // 1) ลอง exact match ก่อน (สำหรับ ID/ชื่อที่พิมพ์ครบ)
-      let q1;
-      if (mode === 'studentId') {
-        // รหัสนักศึกษา exact match
-        q1 = query(collection(db, COLLECTION_NAME), where(FIELD, '==', termRaw), limit(20));
-      } else {
-        // ชื่อ exact match (ตรงตัว)
-        q1 = query(collection(db, COLLECTION_NAME), where(FIELD, '==', termRaw), limit(20));
-      }
+      // 1) exact match
+      const q1 = query(collection(db, COLLECTION_NAME), where(FIELD, '==', termRaw), limit(20));
       const snap1 = await getDocs(q1);
       const exact = snap1.docs.map(d => d.data());
       if (exact.length) { renderRows(exact); return; }
 
-      // 2) ถ้าไม่เจอ ให้ทำ prefix (เริ่มต้นด้วย)
-      // หมายเหตุ: ต้อง orderBy ที่ฟิลด์นั้น และ prefix ด้วย startAt / endAt
-      const prefix = termRaw;
+      // 2) prefix match
       const q2 = query(
         collection(db, COLLECTION_NAME),
         orderBy(FIELD),
-        startAt(prefix),
-        endAt(prefix + '\uf8ff'),
+        startAt(termRaw),
+        endAt(termRaw + '\uf8ff'),
         limit(50)
       );
       const snap2 = await getDocs(q2);
-      const partial = snap2.docs.map(d => d.data());
-      renderRows(partial);
+      renderRows(snap2.docs.map(d => d.data()));
     }
 
-    // ===== Events =====
+    // ========= Add Logic (requires auth) =========
+    async function addOrder(e) {
+      e.preventDefault();
+      const user = auth.currentUser;
+      if (!user) { toast('กรุณาเข้าสู่ระบบก่อนบันทึก', false); return; }
+
+      // Optional: จำกัดโดเมน/อีเมล
+      // const email = user.email || '';
+      // const domainOK = ALLOWED_DOMAIN ? email.endsWith(`@${ALLOWED_DOMAIN}`) : true;
+      // const emailOK  = ALLOWED_EMAILS ? ALLOWED_EMAILS.includes(email) : true;
+      // if (!(domainOK || emailOK)) { toast('อีเมลนี้ไม่มีสิทธิ์บันทึกข้อมูล', false); return; }
+
+      const studentId = $('f_studentId').value.trim();
+      const fullName = $('f_fullName').value.trim();
+      const merchandise = $('f_merchandise').value.trim();
+      const quantity = Number($('f_quantity').value || 0);
+      const address = $('f_address').value.trim();
+      const trackingNo = $('f_trackingNo').value.trim();
+
+      if (!studentId || !fullName || !merchandise || !address || quantity < 1) {
+        toast('กรอกข้อมูลให้ครบถ้วน (จำนวนต้องมากกว่าหรือเท่ากับ 1)', false);
+        return;
+      }
+
+      try {
+        await addDoc(collection(db, COLLECTION_NAME), {
+          [F.studentId]: studentId,
+          [F.fullName]: fullName,
+          [F.merchandise]: merchandise,
+          [F.quantity]: quantity,
+          [F.address]: address,
+          [F.trackingNo]: trackingNo || '',
+          [F.createdAt]: serverTimestamp(),
+          [F.createdBy]: {
+            uid: user.uid,
+            email: user.email || '',
+            displayName: user.displayName || ''
+          }
+        });
+        toast('บันทึกสำเร็จ ✓', true);
+        addForm.reset();
+      } catch (err) {
+        console.error(err);
+        toast('บันทึกล้มเหลว โปรดลองอีกครั้ง', false);
+      }
+    }
+
+    // ========= Auth UI Handling =========
+    function updateAuthUI(user) {
+      if (user) {
+        // Signed in
+        btnSignIn.classList.add('hidden');
+        btnSignOut.classList.remove('hidden');
+        userInfo.classList.remove('hidden');
+        userInfo.textContent = `เข้าสู่ระบบ: ${user.displayName || user.email}`;
+
+        addSection.classList.remove('hidden');
+      } else {
+        // Signed out
+        btnSignIn.classList.remove('hidden');
+        btnSignOut.classList.add('hidden');
+        userInfo.classList.add('hidden');
+        userInfo.textContent = '';
+
+        addSection.classList.add('hidden');
+      }
+    }
+
+    // ========= Event Listeners =========
     btnSearch.addEventListener('click', search);
     btnClear.addEventListener('click', () => { qInput.value = ''; renderRows([]); });
     qInput.addEventListener('keydown', (e) => { if (e.key === 'Enter') search(); });
+
+    addForm.addEventListener('submit', addOrder);
+    btnReset.addEventListener('click', () => addForm.reset());
+
+    btnSignIn.addEventListener('click', async () => {
+      try { await signInWithPopup(auth, provider); }
+      catch (e) { alert('ล็อกอินไม่สำเร็จ'); console.error(e); }
+    });
+
+    btnSignOut.addEventListener('click', async () => {
+      try { await signOut(auth); }
+      catch (e) { alert('ออกจากระบบไม่สำเร็จ'); console.error(e); }
+    });
+
+    onAuthStateChanged(auth, (user) => updateAuthUI(user));
+
+    // Autofocus
     window.addEventListener('DOMContentLoaded', () => qInput.focus());
   </script>
 
   <!--
-  Firestore ข้อควรทราบ:
-  1) ถ้าค้นหาแบบ prefix ไม่ขึ้น ให้สร้าง Index สำหรับ orderBy(FIELD) ในคอลเลกชัน "orders"
-  2) ถ้าต้องการค้นหาชื่อแบบไม่สนตัวพิมพ์ (case-insensitive) แนะนำเก็บฟิลด์เพิ่ม เช่น fullNameLower และค้นหาด้วยค่านั้นแทน
+  ================== Firestore Rules แนะนำ ==================
+  ปรับให้สอดคล้องกับนโยบายข้อมูลของสโมสร/มหาวิทยาลัย
+  rules_version = '2';
+  service cloud.firestore {
+    match /databases/{database}/documents {
+      match /orders/{docId} {
+        // ใครๆ อ่านได้ (ถ้าข้อมูลไม่อ่อนไหว) — ปรับตามต้องการ
+        allow read: if true;
+
+        // เขียนได้เฉพาะผู้ล็อกอิน
+        allow create: if request.auth != null;
+
+        // แก้ไข/ลบ: จำกัดให้เฉพาะแอดมิน หรือผู้สร้างเอกสาร (ถ้าต้องการ)
+        // allow update, delete: if request.auth != null && (
+        //   request.auth.token.admin == true ||
+        //   request.resource.data.createdBy.uid == request.auth.uid
+        // );
+      }
+    }
+  }
+
+  หมายเหตุ:
+  - ถ้า prefix search ไม่ทำงาน ให้สร้าง Index สำหรับ orderBy(studentId) และ orderBy(fullName)
+  - ถ้าต้องการค้นหาชื่อแบบไม่สนตัวพิมพ์ แนะนำเก็บฟิลด์ fullNameLower และค้นหาจากค่านั้นแทน
   -->
 </body>
 </html>
