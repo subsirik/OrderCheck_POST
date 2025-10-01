@@ -192,4 +192,251 @@
     // const ALLOWED_DOMAIN = 'cmu.ac.th';
 
     // ===== Elements =====
-    const $ = (id) => document.getElementById(id
+    const $ = (id) => document.getElementById(id);
+    const qInput = $('q');
+    const modeSel = $('mode');
+    const btnSearch = $('btnSearch');
+    const btnClear = $('btnClear');
+    const tbody = $('tbody');
+    const emptyState = $('emptyState');
+    const summary = $('summary');
+    const countSpan = $('count');
+    const lastUpdated = $('lastUpdated');
+
+    const addSection = $('addSection');
+    const addForm = $('addForm');
+    const addStatus = $('addStatus');
+    const btnReset = $('btnReset');
+
+    const authEmail = $('authEmail');
+    const authPassword = $('authPassword');
+    const btnEmailSignIn = $('btnEmailSignIn');
+    const btnEmailSignUp = $('btnEmailSignUp');
+    const btnResetPwd = $('btnResetPwd');
+    const btnSignOut = $('btnSignOut');
+    const userInfo = $('userInfo');
+    const authMsg = $('authMsg');
+
+    // ===== Helpers =====
+    const fmt = (v) => (v ?? '').toString().trim() || '-';
+    function setMsg(el, msg, ok=true) {
+      el.textContent = msg;
+      el.className = `text-sm ${ok ? 'text-emerald-700' : 'text-rose-700'}`;
+      if (msg) setTimeout(() => { el.textContent = ''; }, 3000);
+    }
+
+    function renderRows(rows) {
+      if (!rows.length) {
+        tbody.innerHTML = '';
+        emptyState.classList.remove('hidden');
+        summary.classList.add('hidden');
+        return;
+      }
+      emptyState.classList.add('hidden');
+      summary.classList.remove('hidden');
+      countSpan.textContent = rows.length.toLocaleString();
+      lastUpdated.textContent = `อัปเดตเมื่อ ${new Date().toLocaleString('th-TH')}`;
+
+      tbody.innerHTML = rows.map((r, i) => `
+        <tr class="hover:bg-gray-50">
+          <td class="px-4 py-3 text-sm text-gray-900">${i + 1}</td>
+          <td class="px-4 py-3 text-sm text-gray-900">${fmt(r[F.studentId])}</td>
+          <td class="px-4 py-3 text-sm text-gray-900">${fmt(r[F.fullName])}</td>
+          <td class="px-4 py-3 text-sm text-gray-900">${fmt(r[F.merchandise])}</td>
+          <td class="px-4 py-3 text-sm text-gray-900">${fmt(r[F.quantity])}</td>
+          <td class="px-4 py-3 text-sm text-gray-900 whitespace-pre-line">${fmt(r[F.address])}</td>
+          <td class="px-4 py-3 text-sm font-semibold text-indigo-700">${fmt(r[F.trackingNo])}</td>
+          <td class="px-4 py-3 text-sm">
+            <button class="copyBtn bg-indigo-600 hover:bg-indigo-700 text-white px-3 py-1 rounded"
+                    data-copy="${fmt(r[F.trackingNo])}">คัดลอก</button>
+          </td>
+        </tr>
+      `).join('');
+
+      tbody.querySelectorAll('.copyBtn').forEach(btn => {
+        btn.addEventListener('click', async (e) => {
+          const t = e.currentTarget.getAttribute('data-copy') || '';
+          try {
+            await navigator.clipboard.writeText(t);
+            e.currentTarget.textContent = 'คัดลอกแล้ว';
+            setTimeout(() => (e.currentTarget.textContent = 'คัดลอก'), 1200);
+          } catch { alert('คัดลอกไม่สำเร็จ'); }
+        });
+      });
+    }
+
+    // ===== Search Logic =====
+    async function search() {
+      const termRaw = qInput.value.trim();
+      const mode = modeSel.value;
+      if (!termRaw) { renderRows([]); return; }
+
+      const FIELD = (mode === 'studentId') ? F.studentId : F.fullName;
+
+      // 1) exact
+      const q1 = query(collection(db, COLLECTION_NAME), where(FIELD, '==', termRaw), limit(20));
+      const snap1 = await getDocs(q1);
+      const exact = snap1.docs.map(d => d.data());
+      if (exact.length) { renderRows(exact); return; }
+
+      // 2) prefix
+      const q2 = query(
+        collection(db, COLLECTION_NAME),
+        orderBy(FIELD),
+        startAt(termRaw),
+        endAt(termRaw + '\uf8ff'),
+        limit(50)
+      );
+      const snap2 = await getDocs(q2);
+      renderRows(snap2.docs.map(d => d.data()));
+    }
+
+    // ===== Add Logic (requires auth) =====
+    async function addOrder(e) {
+      e.preventDefault();
+      const user = auth.currentUser;
+      if (!user) { setMsg(addStatus, 'กรุณาเข้าสู่ระบบก่อนบันทึก', false); return; }
+
+      // Optional domain guard
+      // if (ALLOWED_DOMAIN && !(user.email || '').endsWith('@' + ALLOWED_DOMAIN)) {
+      //   setMsg(addStatus, 'บัญชีนี้ไม่ได้รับอนุญาตให้บันทึกข้อมูล', false);
+      //   await signOut(auth);
+      //   return;
+      // }
+
+      const studentId = $('f_studentId').value.trim();
+      const fullName = $('f_fullName').value.trim();
+      const merchandise = $('f_merchandise').value.trim();
+      const quantity = Number($('f_quantity').value || 0);
+      const address = $('f_address').value.trim();
+      const trackingNo = $('f_trackingNo').value.trim();
+
+      if (!studentId || !fullName || !merchandise || !address || quantity < 1) {
+        setMsg(addStatus, 'กรอกข้อมูลให้ครบถ้วน (จำนวนต้อง ≥ 1)', false); return;
+      }
+
+      try {
+        await addDoc(collection(db, COLLECTION_NAME), {
+          [F.studentId]: studentId,
+          [F.fullName]: fullName,
+          [F.merchandise]: merchandise,
+          [F.quantity]: quantity,
+          [F.address]: address,
+          [F.trackingNo]: trackingNo || '',
+          [F.createdAt]: serverTimestamp(),
+          [F.createdBy]: {
+            uid: user.uid,
+            email: user.email || '',
+            displayName: user.displayName || ''
+          }
+        });
+        setMsg(addStatus, 'บันทึกสำเร็จ ✓', true);
+        addForm.reset();
+      } catch (err) {
+        console.error(err);
+        setMsg(addStatus, 'บันทึกล้มเหลว โปรดลองอีกครั้ง', false);
+      }
+    }
+
+    // ===== Auth (Email/Password) =====
+    async function emailSignIn() {
+      const email = authEmail.value.trim();
+      const pwd = authPassword.value;
+      if (!email || !pwd) { setMsg(authMsg, 'กรอกอีเมลและรหัสผ่าน', false); return; }
+      try {
+        // Optional domain restriction on sign-in
+        // if (ALLOWED_DOMAIN && !email.endsWith('@' + ALLOWED_DOMAIN)) {
+        //   setMsg(authMsg, 'อนุญาตเฉพาะอีเมลโดเมน ' + ALLOWED_DOMAIN, false); return;
+        // }
+        await signInWithEmailAndPassword(auth, email, pwd);
+        setMsg(authMsg, 'เข้าสู่ระบบสำเร็จ ✓', true);
+      } catch (e) {
+        console.error(e);
+        setMsg(authMsg, 'เข้าสู่ระบบไม่สำเร็จ: ' + (e.code || 'error'), false);
+      }
+    }
+
+    async function emailSignUp() {
+      const email = authEmail.value.trim();
+      const pwd = authPassword.value;
+      if (!email || !pwd) { setMsg(authMsg, 'กรอกอีเมลและรหัสผ่าน', false); return; }
+      if (pwd.length < 6) { setMsg(authMsg, 'รหัสผ่านอย่างน้อย 6 ตัวอักษร', false); return; }
+      try {
+        // Optional domain restriction on sign-up
+        // if (ALLOWED_DOMAIN && !email.endsWith('@' + ALLOWED_DOMAIN)) {
+        //   setMsg(authMsg, 'สมัครได้เฉพาะอีเมลโดเมน ' + ALLOWED_DOMAIN, false); return;
+        // }
+        await createUserWithEmailAndPassword(auth, email, pwd);
+        setMsg(authMsg, 'สมัครสมาชิกสำเร็จ ✓ เข้าสู่ระบบแล้ว', true);
+      } catch (e) {
+        console.error(e);
+        setMsg(authMsg, 'สมัครไม่สำเร็จ: ' + (e.code || 'error'), false);
+      }
+    }
+
+    async function resetPassword() {
+      const email = authEmail.value.trim();
+      if (!email) { setMsg(authMsg, 'พิมพ์อีเมลเพื่อรับลิงก์รีเซ็ตรหัสผ่าน', false); return; }
+      try {
+        await sendPasswordResetEmail(auth, email);
+        setMsg(authMsg, 'ส่งอีเมลรีเซ็ตรหัสผ่านแล้ว ✓', true);
+      } catch (e) {
+        console.error(e);
+        setMsg(authMsg, 'ส่งลิงก์ไม่สำเร็จ: ' + (e.code || 'error'), false);
+      }
+    }
+
+    function updateAuthUI(user) {
+      if (user) {
+        userInfo.classList.remove('hidden');
+        userInfo.textContent = `เข้าสู่ระบบ: ${user.email || 'ผู้ใช้'}`;
+        btnSignOut.classList.remove('hidden');
+        addSection.classList.remove('hidden');
+      } else {
+        userInfo.classList.add('hidden');
+        userInfo.textContent = '';
+        btnSignOut.classList.add('hidden');
+        addSection.classList.add('hidden');
+      }
+    }
+
+    // ===== Events =====
+    btnSearch.addEventListener('click', search);
+    btnClear.addEventListener('click', () => { qInput.value = ''; renderRows([]); });
+    qInput.addEventListener('keydown', (e) => { if (e.key === 'Enter') search(); });
+    window.addEventListener('DOMContentLoaded', () => qInput.focus());
+
+    addForm.addEventListener('submit', addOrder);
+    btnReset.addEventListener('click', () => addForm.reset());
+
+    btnEmailSignIn.addEventListener('click', emailSignIn);
+    btnEmailSignUp.addEventListener('click', emailSignUp);
+    btnResetPwd.addEventListener('click', resetPassword);
+    btnSignOut.addEventListener('click', async () => {
+      try { await signOut(auth); } catch (e) { console.error(e); setMsg(authMsg, 'ออกจากระบบไม่สำเร็จ', false); }
+    });
+
+    onAuthStateChanged(auth, (user) => updateAuthUI(user));
+  </script>
+
+  <!--
+  ================== Firestore Rules แนะนำ ==================
+  ปรับให้สอดคล้องกับนโยบายข้อมูลของสโมสร/มหาวิทยาลัย
+  rules_version = '2';
+  service cloud.firestore {
+    match /databases/{database}/documents {
+      match /orders/{docId} {
+        allow read: if true;                 // ใครก็อ่านได้ (ปรับตามความอ่อนไหวของข้อมูล)
+        allow create: if request.auth != null; // เขียนได้เฉพาะผู้ล็อกอิน
+        // ตัวอย่างจำกัดสิทธิ์เพิ่ม:
+        // allow update, delete: if request.auth != null && request.auth.token.admin == true;
+      }
+    }
+  }
+
+  หมายเหตุ:
+  - ถ้าค้นหาแบบ prefix ไม่ทำงาน ให้สร้าง Index สำหรับ orderBy(studentId) และ orderBy(fullName)
+  - ถ้าต้องการค้นหาชื่อแบบไม่สนตัวพิมพ์ ใช้ฟิลด์เสริม เช่น fullNameLower และบันทึก/ค้นหาด้วยค่านั้นแทน
+  -->
+</body>
+</html>
