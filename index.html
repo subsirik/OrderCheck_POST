@@ -8,7 +8,6 @@
   <style>
     @import url('https://fonts.googleapis.com/css2?family=Sarabun:wght@300;400;600;700&display=swap');
     body { font-family: 'Sarabun', sans-serif; }
-    .sr-only { position:absolute; width:1px; height:1px; padding:0; margin:-1px; overflow:hidden; clip:rect(0,0,0,0); border:0; }
   </style>
 </head>
 <body class="bg-gradient-to-br from-blue-50 to-indigo-100 min-h-screen">
@@ -17,25 +16,42 @@
     <div class="container mx-auto px-6 py-5">
       <div class="flex flex-col gap-2 md:flex-row md:items-center md:justify-between">
         <div>
-          <h1 class="text-2xl md:text-3xl font-bold text-gray-900">
-            หน่วยพัฒนาและจำหน่ายผลิตภัณฑ์
-          </h1>
+          <h1 class="text-2xl md:text-3xl font-bold text-gray-900">หน่วยพัฒนาและจำหน่ายผลิตภัณฑ์</h1>
           <p class="text-sm text-gray-600">สโมสรนักศึกษาคณะมนุษยศาสตร์ มหาวิทยาลัยเชียงใหม่</p>
         </div>
         <div class="flex items-center gap-3">
-          <span id="userInfo" class="text-sm text-gray-600 hidden"></span>
-          <button id="btnSignIn" class="bg-emerald-600 hover:bg-emerald-700 text-white px-4 py-2 rounded-xl">
-            เข้าสู่ระบบด้วย Google
-          </button>
-          <button id="btnSignOut" class="bg-gray-600 hover:bg-gray-700 text-white px-4 py-2 rounded-xl hidden">
-            ออกจากระบบ
-          </button>
+          <span id="userInfo" class="text-sm text-gray-700 hidden"></span>
+          <button id="btnSignOut" class="bg-gray-600 hover:bg-gray-700 text-white px-4 py-2 rounded-xl hidden">ออกจากระบบ</button>
         </div>
       </div>
     </div>
   </header>
 
   <main class="container mx-auto px-6 py-8">
+    <!-- Auth Card: Email + Password -->
+    <section class="bg-white rounded-2xl shadow-lg p-6 border border-gray-100 mb-6">
+      <h2 class="text-lg font-semibold text-gray-900 mb-3">เข้าสู่ระบบ / สมัครสมาชิก (อีเมล & รหัสผ่าน)</h2>
+      <div class="grid gap-4 md:grid-cols-3">
+        <div>
+          <label class="block text-sm font-medium text-gray-700 mb-1">อีเมล</label>
+          <input id="authEmail" type="email" placeholder="you@example.com"
+                 class="w-full rounded-xl border-gray-300 focus:ring-2 focus:ring-indigo-500 px-4 py-2">
+        </div>
+        <div>
+          <label class="block text-sm font-medium text-gray-700 mb-1">รหัสผ่าน</label>
+          <input id="authPassword" type="password" placeholder="อย่างน้อย 6 ตัวอักษร"
+                 class="w-full rounded-xl border-gray-300 focus:ring-2 focus:ring-indigo-500 px-4 py-2">
+        </div>
+        <div class="flex items-end gap-2">
+          <button id="btnEmailSignIn" class="bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-2 rounded-xl">เข้าสู่ระบบ</button>
+          <button id="btnEmailSignUp" class="bg-emerald-600 hover:bg-emerald-700 text-white px-4 py-2 rounded-xl">สมัครสมาชิก</button>
+          <button id="btnResetPwd" class="bg-amber-600 hover:bg-amber-700 text-white px-4 py-2 rounded-xl">ลืมรหัสผ่าน</button>
+        </div>
+      </div>
+      <p id="authMsg" class="text-sm mt-3"></p>
+      <p class="text-xs text-gray-500 mt-1">* เข้าสู่ระบบเพื่อเปิดฟอร์ม “เพิ่มข้อมูลคำสั่งซื้อ” (ค้นหาใช้งานได้โดยไม่ต้องล็อกอิน)</p>
+    </section>
+
     <!-- Search Card -->
     <div class="bg-white rounded-2xl shadow-lg p-6 border border-gray-100">
       <h2 class="text-lg font-semibold text-gray-900 mb-3">ค้นหาคำสั่งซื้อ</h2>
@@ -62,7 +78,7 @@
       </div>
     </div>
 
-    <!-- Admin/Add Form (visible only when signed-in) -->
+    <!-- Add Form (visible only when signed-in) -->
     <section id="addSection" class="mt-8 bg-white rounded-2xl shadow-lg p-6 border border-gray-100 hidden">
       <div class="flex items-center justify-between">
         <h2 class="text-lg font-semibold text-gray-900">เพิ่มข้อมูลคำสั่งซื้อ (เฉพาะผู้ล็อกอิน)</h2>
@@ -144,23 +160,22 @@
       getFirestore, collection, query, where, getDocs, orderBy, limit, startAt, endAt, addDoc, serverTimestamp
     } from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js';
     import {
-      getAuth, GoogleAuthProvider, signInWithPopup, signOut, onAuthStateChanged
+      getAuth, onAuthStateChanged, signInWithEmailAndPassword, createUserWithEmailAndPassword, sendPasswordResetEmail, signOut
     } from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js';
 
-    // ========= Firebase Config (ใช้โปรเจกต์เดิมของคุณ) =========
+    // ===== Firebase Config (ใช้โปรเจกต์เดิมของคุณ) =====
     const firebaseConfig = {
       apiKey: "AIzaSyByuGxfKJcT-fcFZlfBF926Cyo1yXxwwTc",
       authDomain: "ordertrackkingsmo.firebaseapp.com",
       projectId: "ordertrackkingsmo",
     };
 
-    // ========= Init =========
+    // ===== Init =====
     const app = initializeApp(firebaseConfig);
     const db  = getFirestore(app);
     const auth = getAuth(app);
-    const provider = new GoogleAuthProvider();
 
-    // ========= App Config =========
+    // ===== App Config =====
     const COLLECTION_NAME = 'orders';
     const F = {
       studentId:   'studentId',
@@ -173,222 +188,8 @@
       createdBy:   'createdBy'
     };
 
-    // Optional: จำกัดสิทธิ์เฉพาะโดเมน/อีเมลภายใน (ปลดคอมเมนต์เพื่อใช้งาน)
-    // const ALLOWED_DOMAIN = "cmu.ac.th";
-    // const ALLOWED_EMAILS = ["you@cmu.ac.th","admin@cmu.ac.th"];
+    // Optional: จำกัดเฉพาะโดเมน
+    // const ALLOWED_DOMAIN = 'cmu.ac.th';
 
-    // ========= Elements =========
-    const $ = (id) => document.getElementById(id);
-    const qInput = $('q');
-    const modeSel = $('mode');
-    const btnSearch = $('btnSearch');
-    const btnClear = $('btnClear');
-    const tbody = $('tbody');
-    const emptyState = $('emptyState');
-    const summary = $('summary');
-    const countSpan = $('count');
-    const lastUpdated = $('lastUpdated');
-
-    const addSection = $('addSection');
-    const addForm = $('addForm');
-    const addStatus = $('addStatus');
-    const btnReset = $('btnReset');
-
-    const btnSignIn = $('btnSignIn');
-    const btnSignOut = $('btnSignOut');
-    const userInfo = $('userInfo');
-
-    // ========= Helpers =========
-    const fmt = (v) => (v ?? '').toString().trim() || '-';
-    const toast = (msg, ok=true) => {
-      addStatus.textContent = msg;
-      addStatus.className = `text-sm ${ok ? 'text-emerald-700' : 'text-rose-700'}`;
-      setTimeout(() => { addStatus.textContent = ''; }, 2500);
-    };
-
-    function renderRows(rows) {
-      if (!rows.length) {
-        tbody.innerHTML = '';
-        emptyState.classList.remove('hidden');
-        summary.classList.add('hidden');
-        return;
-      }
-      emptyState.classList.add('hidden');
-      summary.classList.remove('hidden');
-      countSpan.textContent = rows.length.toLocaleString();
-      lastUpdated.textContent = `อัปเดตเมื่อ ${new Date().toLocaleString('th-TH')}`;
-
-      tbody.innerHTML = rows.map((r, i) => `
-        <tr class="hover:bg-gray-50">
-          <td class="px-4 py-3 text-sm text-gray-900">${i + 1}</td>
-          <td class="px-4 py-3 text-sm text-gray-900">${fmt(r[F.studentId])}</td>
-          <td class="px-4 py-3 text-sm text-gray-900">${fmt(r[F.fullName])}</td>
-          <td class="px-4 py-3 text-sm text-gray-900">${fmt(r[F.merchandise])}</td>
-          <td class="px-4 py-3 text-sm text-gray-900">${fmt(r[F.quantity])}</td>
-          <td class="px-4 py-3 text-sm text-gray-900 whitespace-pre-line">${fmt(r[F.address])}</td>
-          <td class="px-4 py-3 text-sm font-semibold text-indigo-700">${fmt(r[F.trackingNo])}</td>
-          <td class="px-4 py-3 text-sm">
-            <button class="copyBtn bg-indigo-600 hover:bg-indigo-700 text-white px-3 py-1 rounded"
-                    data-copy="${fmt(r[F.trackingNo])}">คัดลอก</button>
-          </td>
-        </tr>
-      `).join('');
-
-      tbody.querySelectorAll('.copyBtn').forEach(btn => {
-        btn.addEventListener('click', async (e) => {
-          const t = e.currentTarget.getAttribute('data-copy') || '';
-          try {
-            await navigator.clipboard.writeText(t);
-            e.currentTarget.textContent = 'คัดลอกแล้ว';
-            setTimeout(() => (e.currentTarget.textContent = 'คัดลอก'), 1200);
-          } catch { alert('คัดลอกไม่สำเร็จ'); }
-        });
-      });
-    }
-
-    // ========= Search Logic =========
-    async function search() {
-      const termRaw = qInput.value.trim();
-      const mode = modeSel.value;
-      if (!termRaw) { renderRows([]); return; }
-
-      const FIELD = (mode === 'studentId') ? F.studentId : F.fullName;
-
-      // 1) exact match
-      const q1 = query(collection(db, COLLECTION_NAME), where(FIELD, '==', termRaw), limit(20));
-      const snap1 = await getDocs(q1);
-      const exact = snap1.docs.map(d => d.data());
-      if (exact.length) { renderRows(exact); return; }
-
-      // 2) prefix match
-      const q2 = query(
-        collection(db, COLLECTION_NAME),
-        orderBy(FIELD),
-        startAt(termRaw),
-        endAt(termRaw + '\uf8ff'),
-        limit(50)
-      );
-      const snap2 = await getDocs(q2);
-      renderRows(snap2.docs.map(d => d.data()));
-    }
-
-    // ========= Add Logic (requires auth) =========
-    async function addOrder(e) {
-      e.preventDefault();
-      const user = auth.currentUser;
-      if (!user) { toast('กรุณาเข้าสู่ระบบก่อนบันทึก', false); return; }
-
-      // Optional: จำกัดโดเมน/อีเมล
-      // const email = user.email || '';
-      // const domainOK = ALLOWED_DOMAIN ? email.endsWith(`@${ALLOWED_DOMAIN}`) : true;
-      // const emailOK  = ALLOWED_EMAILS ? ALLOWED_EMAILS.includes(email) : true;
-      // if (!(domainOK || emailOK)) { toast('อีเมลนี้ไม่มีสิทธิ์บันทึกข้อมูล', false); return; }
-
-      const studentId = $('f_studentId').value.trim();
-      const fullName = $('f_fullName').value.trim();
-      const merchandise = $('f_merchandise').value.trim();
-      const quantity = Number($('f_quantity').value || 0);
-      const address = $('f_address').value.trim();
-      const trackingNo = $('f_trackingNo').value.trim();
-
-      if (!studentId || !fullName || !merchandise || !address || quantity < 1) {
-        toast('กรอกข้อมูลให้ครบถ้วน (จำนวนต้องมากกว่าหรือเท่ากับ 1)', false);
-        return;
-      }
-
-      try {
-        await addDoc(collection(db, COLLECTION_NAME), {
-          [F.studentId]: studentId,
-          [F.fullName]: fullName,
-          [F.merchandise]: merchandise,
-          [F.quantity]: quantity,
-          [F.address]: address,
-          [F.trackingNo]: trackingNo || '',
-          [F.createdAt]: serverTimestamp(),
-          [F.createdBy]: {
-            uid: user.uid,
-            email: user.email || '',
-            displayName: user.displayName || ''
-          }
-        });
-        toast('บันทึกสำเร็จ ✓', true);
-        addForm.reset();
-      } catch (err) {
-        console.error(err);
-        toast('บันทึกล้มเหลว โปรดลองอีกครั้ง', false);
-      }
-    }
-
-    // ========= Auth UI Handling =========
-    function updateAuthUI(user) {
-      if (user) {
-        // Signed in
-        btnSignIn.classList.add('hidden');
-        btnSignOut.classList.remove('hidden');
-        userInfo.classList.remove('hidden');
-        userInfo.textContent = `เข้าสู่ระบบ: ${user.displayName || user.email}`;
-
-        addSection.classList.remove('hidden');
-      } else {
-        // Signed out
-        btnSignIn.classList.remove('hidden');
-        btnSignOut.classList.add('hidden');
-        userInfo.classList.add('hidden');
-        userInfo.textContent = '';
-
-        addSection.classList.add('hidden');
-      }
-    }
-
-    // ========= Event Listeners =========
-    btnSearch.addEventListener('click', search);
-    btnClear.addEventListener('click', () => { qInput.value = ''; renderRows([]); });
-    qInput.addEventListener('keydown', (e) => { if (e.key === 'Enter') search(); });
-
-    addForm.addEventListener('submit', addOrder);
-    btnReset.addEventListener('click', () => addForm.reset());
-
-    btnSignIn.addEventListener('click', async () => {
-      try { await signInWithPopup(auth, provider); }
-      catch (e) { alert('ล็อกอินไม่สำเร็จ'); console.error(e); }
-    });
-
-    btnSignOut.addEventListener('click', async () => {
-      try { await signOut(auth); }
-      catch (e) { alert('ออกจากระบบไม่สำเร็จ'); console.error(e); }
-    });
-
-    onAuthStateChanged(auth, (user) => updateAuthUI(user));
-
-    // Autofocus
-    window.addEventListener('DOMContentLoaded', () => qInput.focus());
-  </script>
-
-  <!--
-  ================== Firestore Rules แนะนำ ==================
-  ปรับให้สอดคล้องกับนโยบายข้อมูลของสโมสร/มหาวิทยาลัย
-  rules_version = '2';
-  service cloud.firestore {
-    match /databases/{database}/documents {
-      match /orders/{docId} {
-        // ใครๆ อ่านได้ (ถ้าข้อมูลไม่อ่อนไหว) — ปรับตามต้องการ
-        allow read: if true;
-
-        // เขียนได้เฉพาะผู้ล็อกอิน
-        allow create: if request.auth != null;
-
-        // แก้ไข/ลบ: จำกัดให้เฉพาะแอดมิน หรือผู้สร้างเอกสาร (ถ้าต้องการ)
-        // allow update, delete: if request.auth != null && (
-        //   request.auth.token.admin == true ||
-        //   request.resource.data.createdBy.uid == request.auth.uid
-        // );
-      }
-    }
-  }
-
-  หมายเหตุ:
-  - ถ้า prefix search ไม่ทำงาน ให้สร้าง Index สำหรับ orderBy(studentId) และ orderBy(fullName)
-  - ถ้าต้องการค้นหาชื่อแบบไม่สนตัวพิมพ์ แนะนำเก็บฟิลด์ fullNameLower และค้นหาจากค่านั้นแทน
-  -->
-</body>
-</html>
+    // ===== Elements =====
+    const $ = (id) => document.getElementById(id
