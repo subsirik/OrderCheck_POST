@@ -8,6 +8,7 @@
   <style>
     @import url('https://fonts.googleapis.com/css2?family=Sarabun:wght@300;400;600;700&display=swap');
     body { font-family: 'Sarabun', sans-serif; }
+    kbd { font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", monospace; }
   </style>
 </head>
 <body class="bg-gradient-to-br from-blue-50 to-indigo-100 min-h-screen">
@@ -47,9 +48,11 @@
           </select>
         </div>
       </div>
-      <div class="flex gap-3 mt-4">
+      <div class="flex flex-wrap items-center gap-3 mt-4">
         <button id="btnSearch" class="bg-indigo-600 hover:bg-indigo-700 text-white px-5 py-2 rounded-xl">ค้นหา</button>
         <button id="btnClear" class="bg-gray-500 hover:bg-gray-600 text-white px-5 py-2 rounded-xl">ล้างผลลัพธ์</button>
+        <button id="btnLoadAll" class="bg-slate-600 hover:bg-slate-700 text-white px-5 py-2 rounded-xl">โหลดทั้งหมด (20 รายการ)</button>
+        <span id="err" class="text-sm text-rose-700"></span>
       </div>
     </div>
 
@@ -91,11 +94,11 @@
       getFirestore, collection, query, where, getDocs, orderBy, limit, startAt, endAt
     } from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js';
 
-    // ===== Firebase Config (เดิม) =====
+    // ===== Firebase Config (โปรเจกต์ของคุณ) =====
     const firebaseConfig = {
       apiKey: "AIzaSyByuGxfKJcT-fcFZlfBF926Cyo1yXxwwTc",
       authDomain: "ordertrackkingsmo.firebaseapp.com",
-      projectId: "ordertrackkingsmo",
+      projectId: "ordertrackkingsmo"
     };
 
     // ===== Init =====
@@ -103,9 +106,9 @@
     const db  = getFirestore(app);
 
     // ===== CONFIG =====
-    const COLLECTION_NAME = 'orders';
+    const COLLECTION_NAME = 'orders'; // แก้ให้ตรงชื่อคอลเลกชันจริง
     const F = {
-      studentId:   'studentId',
+      studentId:   'studentId',   // ถ้าของจริงสะกด studentID ให้แก้ตรงนี้
       fullName:    'fullName',
       merchandise: 'merchandise',
       quantity:    'quantity',
@@ -120,14 +123,20 @@
     const modeSel = $('mode');
     const btnSearch = $('btnSearch');
     const btnClear = $('btnClear');
+    const btnLoadAll = $('btnLoadAll');
     const tbody = $('tbody');
     const emptyState = $('emptyState');
     const summary = $('summary');
     const countSpan = $('count');
     const lastUpdated = $('lastUpdated');
+    const errSpan = $('err');
 
     // ===== Helpers =====
     const fmt = (v) => (v ?? '').toString().trim() || '-';
+    const showErr = (msg) => {
+      errSpan.textContent = msg || '';
+      if (msg) setTimeout(() => (errSpan.textContent = ''), 5000);
+    };
 
     function renderRows(rows) {
       if (!rows.length) {
@@ -169,55 +178,140 @@
       });
     }
 
-    // ===== Search Logic =====
+    // ===== Diagnostics: Smoke Test on load =====
+    async function smokeTest() {
+      try {
+        const snap = await getDocs(query(collection(db, COLLECTION_NAME), limit(1)));
+        console.log('[SMOKE] docs in collection?', snap.size);
+        if (snap.size === 0) {
+          showErr('คอลเลกชันว่าง หรือชื่อคอลเลกชันไม่ตรง (orders)');
+        }
+      } catch (e) {
+        console.error('[SMOKE] error', e);
+        showErr((e.code || e.message || 'อ่านข้อมูลไม่สำเร็จ') + ' — ตรวจ Rules/Config');
+      }
+    }
+
+    // ===== Fallback: client-side filter when prefix search not possible =====
+    async function fallbackClientFilter(field, prefix) {
+      try {
+        // ลองจัดเรียงตาม createdAt ก่อน (อาจต้องมี index) ไม่งั้นค่อยดึงแบบไม่เรียง
+        try {
+          const snap = await getDocs(query(collection(db, COLLECTION_NAME), orderBy(F.createdAt, 'desc'), limit(200)));
+          const rows = snap.docs.map(d => d.data()).filter(r => String(r[field] ?? '').startsWith(prefix));
+          if (!rows.length) showErr('ไม่พบผลลัพธ์ (โหมด fallback กรองฝั่งไคลเอนต์)');
+          renderRows(rows);
+        } catch (e1) {
+          const snap = await getDocs(query(collection(db, COLLECTION_NAME), limit(200)));
+          const rows = snap.docs.map(d => d.data()).filter(r => String(r[field] ?? '').startsWith(prefix));
+          if (!rows.length) showErr('ไม่พบผลลัพธ์ (fallback ไม่เรียง เพราะยังไม่มี Index)');
+          renderRows(rows);
+        }
+      } catch (e) {
+        console.error('fallback error', e);
+        showErr(e.code || e.message || 'อ่านข้อมูลไม่สำเร็จ');
+      }
+    }
+
+    // ===== Search Logic (robust) =====
     async function search() {
+      showErr('');
       const termRaw = qInput.value.trim();
       const mode = modeSel.value;
       if (!termRaw) { renderRows([]); return; }
 
       const FIELD = (mode === 'studentId') ? F.studentId : F.fullName;
 
-      // 1) exact match
-      const q1 = query(collection(db, COLLECTION_NAME), where(FIELD, '==', termRaw), limit(20));
-      const snap1 = await getDocs(q1);
-      const exact = snap1.docs.map(d => d.data());
-      if (exact.length) { renderRows(exact); return; }
+      try {
+        // 1) exact match (string)
+        const eqStrSnap = await getDocs(query(collection(db, COLLECTION_NAME), where(FIELD, '==', termRaw), limit(20)));
+        const eqStr = eqStrSnap.docs.map(d => d.data());
+        if (eqStr.length) { renderRows(eqStr); return; }
 
-      // 2) prefix match
-      const q2 = query(
-        collection(db, COLLECTION_NAME),
-        orderBy(FIELD),
-        startAt(termRaw),
-        endAt(termRaw + '\uf8ff'),
-        limit(50)
-      );
-      const snap2 = await getDocs(q2);
-      renderRows(snap2.docs.map(d => d.data()));
+        // 1.1) ถ้าเป็น studentId และ term เป็นตัวเลขล้วน ลอง exact แบบ Number
+        if (mode === 'studentId' && /^\d+$/.test(termRaw)) {
+          const eqNumSnap = await getDocs(query(collection(db, COLLECTION_NAME), where(FIELD, '==', Number(termRaw)), limit(20)));
+          const eqNum = eqNumSnap.docs.map(d => d.data());
+          if (eqNum.length) { renderRows(eqNum); return; }
+        }
+
+        // 2) prefix match (ต้องเป็นฟิลด์ชนิดสตริงในฐานข้อมูล)
+        try {
+          const snap2 = await getDocs(query(
+            collection(db, COLLECTION_NAME),
+            orderBy(FIELD),
+            startAt(termRaw),
+            endAt(termRaw + '\uf8ff'),
+            limit(50)
+          ));
+          const rows2 = snap2.docs.map(d => d.data());
+          if (rows2.length) { renderRows(rows2); return; }
+        } catch (e2) {
+          // ถ้า error (เช่น มีชนิดข้อมูลอื่น หรือยังไม่มี index) จะไป fallback
+          console.warn('prefix search error -> fallback', e2);
+        }
+
+        // 3) Fallback: ดึง 200 รายการมากรองฝั่งไคลเอนต์ (ชั่วคราว)
+        await fallbackClientFilter(FIELD, termRaw);
+      } catch (e) {
+        console.error('search error', e);
+        if ((e.code || '').includes('permission-denied')) {
+          showErr('permission-denied: Rules ไม่อนุญาตให้อ่าน (ตั้ง allow read: if true; ชั่วคราวเพื่อตรวจ)');
+        } else if ((e.code || '').includes('failed-precondition')) {
+          showErr('ต้องสร้าง Index ตามลิงก์ที่ขึ้นใน Console (หรือใช้ปุ่ม "โหลดทั้งหมด")');
+        } else {
+          showErr(e.code || e.message || 'ค้นหาไม่สำเร็จ');
+        }
+      }
+    }
+
+    // ===== Load-All (20) to verify reading works =====
+    async function loadAll() {
+      showErr('');
+      try {
+        try {
+          const snap = await getDocs(query(collection(db, COLLECTION_NAME), orderBy(F.createdAt, 'desc'), limit(20)));
+          renderRows(snap.docs.map(d => d.data()));
+        } catch (e1) {
+          const snap = await getDocs(query(collection(db, COLLECTION_NAME), limit(20)));
+          renderRows(snap.docs.map(d => d.data()));
+          showErr('ไม่มี Index สำหรับ orderBy(createdAt) — แสดงแบบไม่เรียงชั่วคราว');
+        }
+      } catch (e) {
+        console.error('loadAll error', e);
+        showErr(e.code || e.message || 'อ่านข้อมูลไม่สำเร็จ');
+      }
     }
 
     // ===== Events =====
     btnSearch.addEventListener('click', search);
-    btnClear.addEventListener('click', () => { qInput.value = ''; renderRows([]); });
+    btnClear.addEventListener('click', () => { qInput.value = ''; renderRows([]); showErr(''); });
+    btnLoadAll.addEventListener('click', loadAll);
     qInput.addEventListener('keydown', (e) => { if (e.key === 'Enter') search(); });
-    window.addEventListener('DOMContentLoaded', () => qInput.focus());
+
+    window.addEventListener('DOMContentLoaded', () => {
+      qInput.focus();
+      smokeTest();
+    });
   </script>
 
   <!--
-  Firestore Rules แนะนำ (อ่านอย่างเดียวสำหรับสาธารณะ – ปรับตามนโยบายของคุณ)
+  🧪 Firestore Rules ทดสอบ (อ่านได้จากหน้าเว็บ)
   rules_version = '2';
   service cloud.firestore {
     match /databases/{database}/documents {
       match /orders/{docId} {
-        allow read: if true;       // ใครก็อ่านได้ (ถ้าข้อมูลไม่อ่อนไหว)
-        // ไม่อนุญาตให้เขียนจากหน้านี้ (คุณจะเพิ่มข้อมูลจาก Console/Server เอง)
+        allow read: if true;   // เปิดอ่านชั่วคราวเพื่อเทส
         // allow write: if false;
       }
     }
   }
 
-  หมายเหตุ:
-  - ถ้า prefix search ไม่ทำงาน ให้สร้าง Index สำหรับ orderBy(studentId) และ orderBy(fullName)
-  - ถ้าต้องการค้นหาชื่อแบบไม่สนตัวพิมพ์ สร้างฟิลด์เสริม fullNameLower และค้นหาจากค่านั้นแทน
+  ถ้ายังไม่ขึ้น:
+  - เช็กที่ Console (F12) ว่ามี error "permission-denied" หรือ "requires index" ไหม
+  - คอลเลกชัน/ฟิลด์สะกดตรงกับ F ไหม
+  - ลองปุ่ม "โหลดทั้งหมด" เพื่อตรวจการอ่านพื้นฐาน
+  - ถ้า studentId เก็บเป็น Number → ค้นแบบ prefix จะใช้ fallback (ดึง 200 รายการมากรอง)
   -->
 </body>
 </html>
