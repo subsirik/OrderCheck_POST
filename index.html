@@ -1,0 +1,427 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>ทะเบียนคุมครุภัณฑ์สโมสรนักศึกษาคณะมนุษยศาสตร์ มหาวิทยาลัยเชียงใหม่</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Sarabun:wght@300;400;500;600;700&display=swap');
+    body { font-family: 'Sarabun', sans-serif; }
+  </style>
+</head>
+<body class="bg-gradient-to-br from-blue-50 to-indigo-100 min-h-screen">
+  <header class="bg-white shadow-lg border-b-4 border-blue-600">
+    <div class="container mx-auto px-6 py-4">
+      <div class="flex justify-between items-center">
+        <div>
+          <h1 class="text-2xl font-bold text-gray-800">ระบบทะเบียนคุมครุภัณฑ์</h1>
+          <p class="text-sm text-gray-600">สโมสรนักศึกษาคณะมนุษยศาสตร์ มหาวิทยาลัยเชียงใหม่</p>
+        </div>
+        <div class="flex items-center gap-3">
+          <span id="authState" class="text-sm text-gray-600">ผู้เยี่ยมชม</span>
+          <button id="adminBtn" class="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg">โหมดเจ้าหน้าที่</button>
+        </div>
+      </div>
+    </div>
+  </header>
+
+  <main class="container mx-auto px-6 py-8">
+    <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
+      <div class="bg-white rounded-xl shadow-md p-6 border-l-4 border-blue-500">
+        <h3 class="text-lg font-semibold text-gray-700 mb-2">จำนวนครุภัณฑ์ทั้งหมด</h3>
+        <p id="totalItems" class="text-3xl font-bold text-blue-600">0</p>
+      </div>
+      <div class="bg-white rounded-xl shadow-md p-6 border-l-4 border-green-500">
+        <h3 class="text-lg font-semibold text-gray-700 mb-2">มูลค่ารวม</h3>
+        <p id="totalValue" class="text-3xl font-bold text-green-600">0 บาท</p>
+      </div>
+      <div class="bg-white rounded-xl shadow-md p-6 border-l-4 border-orange-500">
+        <h3 class="text-lg font-semibold text-gray-700 mb-2">รายการล่าสุด</h3>
+        <p id="latestItem" class="text-lg font-medium text-orange-600">-</p>
+      </div>
+    </div>
+
+    <div id="adminPanel" class="hidden bg-white rounded-xl shadow-lg p-6 mb-8">
+      <div class="flex justify-between items-center mb-6">
+        <h2 class="text-xl font-bold text-gray-800">จัดการข้อมูลครุภัณฑ์</h2>
+        <button id="addItemBtn" class="bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded-lg">+ เพิ่มครุภัณฑ์</button>
+      </div>
+
+      <div id="itemForm" class="hidden border-t pt-6">
+        <h3 id="formTitle" class="text-lg font-semibold mb-4">เพิ่มครุภัณฑ์ใหม่</h3>
+        <form id="equipmentForm" class="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <input type="hidden" id="editId" value="" />
+
+          <div>
+            <label class="block text-sm font-medium text-gray-700 mb-1">วันที่ซื้อ</label>
+            <input type="date" id="purchaseDate" class="w-full border border-gray-300 rounded-lg px-3 py-2" />
+          </div>
+
+          <div>
+            <label class="block text-sm font-medium text-gray-700 mb-1">เลขครุภัณฑ์ *</label>
+            <input type="text" id="equipmentNumber" required class="w-full border border-gray-300 rounded-lg px-3 py-2" />
+          </div>
+
+          <div>
+            <label class="block text-sm font-medium text-gray-700 mb-1">รายการ *</label>
+            <input type="text" id="itemName" required class="w-full border border-gray-300 rounded-lg px-3 py-2" />
+          </div>
+
+          <div>
+            <label class="block text-sm font-medium text-gray-700 mb-1">จำนวน *</label>
+            <input type="number" id="quantity" min="1" required class="w-full border border-gray-300 rounded-lg px-3 py-2" />
+          </div>
+
+          <div>
+            <label class="block text-sm font-medium text-gray-700 mb-1">หน่วยนับ *</label>
+            <input type="text" id="unit" required class="w-full border border-gray-300 rounded-lg px-3 py-2" />
+          </div>
+
+          <div>
+            <label class="block text-sm font-medium text-gray-700 mb-1">ราคาต่อหน่วย (บาท)</label>
+            <input type="number" id="unitPrice" min="0" step="0.01" class="w-full border border-gray-300 rounded-lg px-3 py-2" />
+          </div>
+
+          <div>
+            <label class="block text-sm font-medium text-gray-700 mb-1">สถานที่จัดเก็บ *</label>
+            <input type="text" id="location" required class="w-full border border-gray-300 rounded-lg px-3 py-2" />
+          </div>
+
+          <div>
+            <label class="block text-sm font-medium text-gray-700 mb-1">สถานะ *</label>
+            <select id="borrowStatus" required class="w-full border border-gray-300 rounded-lg px-3 py-2">
+              <option value="">เลือกสถานะ</option>
+              <option value="ยืมได้">ยืมได้</option>
+              <option value="ยืมไม่ได้">ยืมไม่ได้</option>
+              <option value="สาบสูญ">สาบสูญ</option>
+            </select>
+          </div>
+
+          <div>
+            <label class="block text-sm font-medium text-gray-700 mb-1">หมายเหตุ</label>
+            <input type="text" id="notes" class="w-full border border-gray-300 rounded-lg px-3 py-2" />
+          </div>
+
+          <div class="md:col-span-2 flex gap-3">
+            <button type="submit" class="bg-blue-600 hover:bg-blue-700 text-white px-6 py-2 rounded-lg">บันทึก</button>
+            <button type="button" id="cancelBtn" class="bg-gray-500 hover:bg-gray-600 text-white px-6 py-2 rounded-lg">ยกเลิก</button>
+          </div>
+        </form>
+      </div>
+    </div>
+
+    <div class="bg-white rounded-xl shadow-lg overflow-hidden">
+      <div class="px-6 py-4 border-b border-gray-200">
+        <h2 class="text-xl font-bold text-gray-800">รายการครุภัณฑ์</h2>
+      </div>
+      <div class="overflow-x-auto">
+        <table class="w-full">
+          <thead class="bg-gray-50">
+            <tr>
+              <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">ลำดับ</th>
+              <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">วันที่ลงทะเบียน</th>
+              <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">วันที่ซื้อ</th>
+              <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">เลขครุภัณฑ์</th>
+              <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">รายการ</th>
+              <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">จำนวน</th>
+              <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">หน่วยนับ</th>
+              <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">ราคา/หน่วย</th>
+              <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">อายุการใช้งาน</th>
+              <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">สถานที่เก็บ</th>
+              <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">สถานะการยืม</th>
+              <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">หมายเหตุ</th>
+              <th id="actionHeader" class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider hidden">จัดการ</th>
+            </tr>
+          </thead>
+          <tbody id="equipmentTableBody" class="bg-white divide-y divide-gray-200"></tbody>
+        </table>
+      </div>
+    </div>
+  </main>
+
+  <!-- Modal ล็อกอินแอดมิน -->
+  <div id="loginModal" class="hidden fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+    <div class="bg-white rounded-xl p-6 w-96 mx-4">
+      <h3 class="text-lg font-bold mb-4">เข้าสู่โหมดเจ้าหน้าที่</h3>
+      <input type="email" id="adminEmail" placeholder="อีเมล (Firebase Auth)" class="w-full border border-gray-300 rounded-lg px-3 py-2 mb-2" />
+      <input type="password" id="adminPassword" placeholder="รหัสผ่าน" class="w-full border border-gray-300 rounded-lg px-3 py-2 mb-4" />
+      <div class="flex gap-3">
+        <button id="loginBtn" class="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg flex-1">เข้าสู่ระบบ</button>
+        <button id="cancelLoginBtn" class="bg-gray-500 hover:bg-gray-600 text-white px-4 py-2 rounded-lg flex-1">ยกเลิก</button>
+      </div>
+      <p class="text-xs text-gray-500 mt-3">* ผู้ใช้ทั่วไปไม่ต้องล็อกอิน สามารถดูข้อมูลได้ทันที</p>
+    </div>
+  </div>
+
+  <script type="module">
+    // ===== Firebase v10 (Modular) via CDN =====
+    import { initializeApp } from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js';
+    import { getFirestore, collection, addDoc, getDocs, onSnapshot, doc, updateDoc, deleteDoc, serverTimestamp, query, orderBy } from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js';
+    import { getAuth, signInWithEmailAndPassword, signOut, onAuthStateChanged } from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js';
+
+    // 1) ใส่ค่าคอนฟิกโปรเจกต์ Firebase ของคุณที่นี่ (Project settings → Your apps → Web app → Config)
+    const firebaseConfig = {
+      apiKey: "AIzaSyCh4UcPT8XYCAzikZrMmNk81ieErHBL8Eg",
+      authDomain: "fixed-asset-register-ba909.firebaseapp.com",
+      projectId: "fixed-asset-register-ba909",
+      // storageBucket: "PASTE_YOUR_PROJECT_ID.appspot.com",
+      // messagingSenderId: "PASTE_SENDER_ID",
+      // appId: "PASTE_APP_ID",
+    };
+
+    // ===== App Init =====
+    const app = initializeApp(firebaseConfig);
+    const db = getFirestore(app);
+    const auth = getAuth(app);
+
+    // ===== Helpers =====
+    const $ = (id) => document.getElementById(id);
+    let isAdminMode = false;
+    let itemsMap = new Map(); // id -> item
+    let unsubList = null;
+
+    document.addEventListener('DOMContentLoaded', () => {
+      setupEvents();
+      subscribeList();
+    });
+
+    function setupEvents() {
+      // Admin button: login/logout
+      $('adminBtn').addEventListener('click', async () => {
+        if (auth.currentUser) {
+          await signOut(auth);
+        } else {
+          $('loginModal').classList.remove('hidden');
+        }
+      });
+
+      $('cancelLoginBtn').addEventListener('click', () => $('loginModal').classList.add('hidden'));
+      $('loginBtn').addEventListener('click', loginAdmin);
+
+      // Form buttons
+      $('addItemBtn').addEventListener('click', showAddForm);
+      $('cancelBtn').addEventListener('click', hideForm);
+      $('equipmentForm').addEventListener('submit', submitForm);
+
+      // Event delegation for table actions
+      const tbody = $('equipmentTableBody');
+      tbody.addEventListener('click', (e) => {
+        const editBtn = e.target.closest('.btn-edit');
+        const delBtn  = e.target.closest('.btn-del');
+        if (editBtn) {
+          const id = editBtn.dataset.id;
+          const it = itemsMap.get(id);
+          if (it) showEditForm({ id, ...it });
+        } else if (delBtn) {
+          const id = delBtn.dataset.id;
+          onDelete(id);
+        }
+      });
+
+      // Auth state
+      onAuthStateChanged(auth, (user) => {
+        if (user) {
+          enterAdminMode(user);
+        } else {
+          exitAdminMode();
+        }
+      });
+    }
+
+    // ===== Admin Mode UI =====
+    function enterAdminMode(user) {
+      isAdminMode = true;
+      $('authState').textContent = 'เจ้าหน้าที่: ' + (user.email || user.uid);
+      const btn = $('adminBtn');
+      btn.textContent = 'ออกจากโหมดเจ้าหน้าที่';
+      btn.classList.remove('bg-blue-600','hover:bg-blue-700');
+      btn.classList.add('bg-red-600','hover:bg-red-700');
+      $('adminPanel').classList.remove('hidden');
+      $('actionHeader').classList.remove('hidden');
+      renderTable(Array.from(itemsMap.entries()).map(([id, v]) => ({ id, ...v }))); // re-render with actions
+    }
+
+    function exitAdminMode() {
+      isAdminMode = false;
+      $('authState').textContent = 'ผู้เยี่ยมชม';
+      const btn = $('adminBtn');
+      btn.textContent = 'โหมดเจ้าหน้าที่';
+      btn.classList.remove('bg-red-600','hover:bg-red-700');
+      btn.classList.add('bg-blue-600','hover:bg-blue-700');
+      $('adminPanel').classList.add('hidden');
+      $('actionHeader').classList.add('hidden');
+      hideForm();
+      renderTable(Array.from(itemsMap.entries()).map(([id, v]) => ({ id, ...v }))); // re-render without actions
+    }
+
+    async function loginAdmin() {
+      const email = $('adminEmail').value.trim();
+      const password = $('adminPassword').value;
+      if (!email || !password) return alert('กรอกอีเมลและรหัสผ่าน');
+      try {
+        await signInWithEmailAndPassword(auth, email, password);
+        $('loginModal').classList.add('hidden');
+        $('adminEmail').value = '';
+        $('adminPassword').value = '';
+      } catch (e) {
+        alert('เข้าสู่ระบบไม่สำเร็จ: ' + e.message);
+      }
+    }
+
+    // ===== Realtime list =====
+    function subscribeList() {
+      const q = query(collection(db, 'equipment'), orderBy('createdAt', 'asc'));
+      if (unsubList) unsubList();
+      unsubList = onSnapshot(q, (snap) => {
+        itemsMap = new Map();
+        snap.forEach(docSnap => {
+          itemsMap.set(docSnap.id, docSnap.data());
+        });
+        const items = Array.from(itemsMap.entries()).map(([id, v]) => ({ id, ...v }));
+        updateDashboard(items);
+        renderTable(items);
+      }, async (err) => {
+        console.error('onSnapshot error:', err);
+        // Fallback to one-shot read
+        const snap = await getDocs(collection(db, 'equipment'));
+        itemsMap = new Map();
+        snap.forEach(docSnap => itemsMap.set(docSnap.id, docSnap.data()));
+        const items = Array.from(itemsMap.entries()).map(([id, v]) => ({ id, ...v }));
+        updateDashboard(items);
+        renderTable(items);
+      });
+    }
+
+    // ===== UI Helpers =====
+    function showAddForm() {
+      $('editId').value = '';
+      $('formTitle').textContent = 'เพิ่มครุภัณฑ์ใหม่';
+      $('equipmentForm').reset();
+      $('itemForm').classList.remove('hidden');
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+    }
+
+    function showEditForm(item) {
+      $('editId').value = item.id;
+      $('formTitle').textContent = 'แก้ไขข้อมูลครุภัณฑ์';
+      $('purchaseDate').value = item.purchaseDate || '';
+      $('equipmentNumber').value = item.equipmentNumber || '';
+      $('itemName').value = item.itemName || '';
+      $('quantity').value = item.quantity ?? '';
+      $('unit').value = item.unit || '';
+      $('unitPrice').value = item.unitPrice ?? '';
+      $('location').value = item.location || '';
+      $('borrowStatus').value = item.borrowStatus || '';
+      $('notes').value = item.notes || '';
+      $('itemForm').classList.remove('hidden');
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+    }
+
+    function hideForm() {
+      $('itemForm').classList.add('hidden');
+      $('equipmentForm').reset();
+      $('editId').value = '';
+    }
+
+    function calculateAge(purchaseDate) {
+      if (!purchaseDate) return '-';
+      const purchase = new Date(purchaseDate);
+      const today = new Date();
+      const diffDays = Math.ceil(Math.abs(today - purchase) / (1000*60*60*24));
+      if (diffDays < 30) return diffDays + ' วัน';
+      if (diffDays < 365) return Math.floor(diffDays/30) + ' เดือน';
+      const years = Math.floor(diffDays/365);
+      const months = Math.floor((diffDays % 365) / 30);
+      return years + ' ปี ' + months + ' เดือน';
+    }
+
+    function updateDashboard(items) {
+      const totalItems = items.length;
+      const totalValue = items.reduce((sum, it) => sum + (Number(it.quantity || 0) * Number(it.unitPrice || 0)), 0);
+      const latestItem = items.length ? items[items.length - 1].itemName : '-';
+      $('totalItems').textContent = totalItems.toLocaleString();
+      $('totalValue').textContent = totalValue.toLocaleString() + ' บาท';
+      $('latestItem').textContent = latestItem;
+    }
+
+    function renderTable(items) {
+      const tbody = $('equipmentTableBody');
+      if (!items.length) {
+        tbody.innerHTML = '<tr><td colspan="' + (isAdminMode ? '13' : '12') + '" class="px-4 py-8 text-center text-gray-500">ยังไม่มีข้อมูลครุภัณฑ์</td></tr>';
+        return;
+      }
+      tbody.innerHTML = items.map((it, idx) => {
+        const actions = isAdminMode ? `
+          <td class="px-4 py-3 text-sm">
+            <button class="btn-edit bg-yellow-500 hover:bg-yellow-600 text-white px-2 py-1 rounded text-xs mr-1" data-id="${it.id}">แก้ไข</button>
+            <button class="btn-del bg-red-500 hover:bg-red-600 text-white px-2 py-1 rounded text-xs" data-id="${it.id}">ลบ</button>
+          </td>` : '';
+        return `
+          <tr class="hover:bg-gray-50">
+            <td class="px-4 py-3 text-sm text-gray-900">${idx + 1}</td>
+            <td class="px-4 py-3 text-sm text-gray-900">${it.registrationDate || '-'}</td>
+            <td class="px-4 py-3 text-sm text-gray-900">${it.purchaseDate ? new Date(it.purchaseDate).toLocaleDateString("th-TH") : '-'}</td>
+            <td class="px-4 py-3 text-sm text-gray-900">${it.equipmentNumber || '-'}</td>
+            <td class="px-4 py-3 text-sm text-gray-900">${it.itemName || '-'}</td>
+            <td class="px-4 py-3 text-sm text-gray-900">${Number(it.quantity || 0).toLocaleString()}</td>
+            <td class="px-4 py-3 text-sm text-gray-900">${it.unit || '-'}</td>
+            <td class="px-4 py-3 text-sm text-gray-900">${it.unitPrice ? Number(it.unitPrice).toLocaleString() + ' บาท' : '-'}</td>
+            <td class="px-4 py-3 text-sm text-gray-900">${calculateAge(it.purchaseDate)}</td>
+            <td class="px-4 py-3 text-sm text-gray-900">${it.location || '-'}</td>
+            <td class="px-4 py-3 text-sm text-gray-900">${it.borrowStatus || '-'}</td>
+            <td class="px-4 py-3 text-sm text-gray-900">${it.notes || '-'}</td>
+            ${isAdminMode ? actions : ''}
+          </tr>`;
+      }).join('');
+    }
+
+    // ===== CRUD =====
+    async function onDelete(id) {
+      if (!auth.currentUser) return alert('ต้องเข้าสู่โหมดเจ้าหน้าที่ก่อน');
+      if (!confirm('คุณต้องการลบรายการนี้หรือไม่?')) return;
+      await deleteDoc(doc(db, 'equipment', id));
+    }
+
+    async function submitForm(e) {
+      e.preventDefault();
+      if (!auth.currentUser) return alert('ต้องเข้าสู่โหมดเจ้าหน้าที่ก่อน');
+
+      const id = $('editId').value;
+      const payload = {
+        registrationDate: new Date().toLocaleDateString('th-TH'),
+        purchaseDate: $('purchaseDate').value || null,
+        equipmentNumber: $('equipmentNumber').value.trim(),
+        itemName: $('itemName').value.trim(),
+        quantity: Number($('quantity').value),
+        unit: $('unit').value.trim(),
+        unitPrice: $('unitPrice').value ? Number($('unitPrice').value) : null,
+        location: $('location').value.trim(),
+        borrowStatus: $('borrowStatus').value || null,
+        notes: $('notes').value || null,
+      };
+
+      if (id) {
+        await updateDoc(doc(db, 'equipment', id), payload);
+      } else {
+        await addDoc(collection(db, 'equipment'), { ...payload, createdAt: serverTimestamp() });
+      }
+
+      hideForm();
+    }
+  </script>
+
+  <!--
+  === Firestore Rules (แนะนำให้ตั้งแบบนี้) ===
+  rules_version = '2';
+  service cloud.firestore {
+    match /databases/{database}/documents {
+      match /equipment/{docId} {
+        allow read: if true;                  // ใครก็อ่านได้
+        allow write: if request.auth != null; // ต้องล็อกอินก่อนถึงเขียนได้
+      }
+    }
+  }
+  -->
+</body>
+</html>
